@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TRI-FFIC | Olongapo City Smart Navigation & Safety System</title>
+  <meta name="description" content="TRI-FFIC — Traffic &amp; Road Intelligence for Cities: Olongapo City Tourism, Traffic Mobility &amp; Emergency Response powered by ML and live CCTV." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    /* ═══════════════════════════════════════
+       ROOT & RESET
+    ═══════════════════════════════════════ */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    :root {
+      --bg:        #030812;
+      --bg-card:   rgba(8, 18, 40, 0.92);
+      --bg-card2:  rgba(12, 24, 52, 0.95);
+      --cyan:      #00d4ff;
+      --cyan-dim:  #0077aa;
+      --orange:    #ff6b35;
+      --green:     #00ff88;
+      --yellow:    #ffcc00;
+      --red:       #ff3366;
+      --text:      #ddeeff;
+      --text-dim:  #5577aa;
+      --border:    rgba(0, 212, 255, 0.18);
+      --glow-c:    0 0 22px rgba(0,212,255,0.35);
+      --glow-o:    0 0 22px rgba(255,107,53,0.35);
+      --glow-r:    0 0 22px rgba(255,51,102,0.35);
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--cyan-dim); border-radius: 4px; }
+
+    /* ═══════════════════════════════════════
+       STAR CANVAS
+    ═══════════════════════════════════════ */
+    #starsBg {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ═══════════════════════════════════════
+       NAV
+    ═══════════════════════════════════════ */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 999;
+      height: 66px;
+      background: rgba(3,8,18,0.96);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+    }
+    .nav-logo {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.75rem;
+      font-weight: 900;
+      letter-spacing: 5px;
+      color: var(--cyan);
+      text-shadow: 0 0 18px var(--cyan);
+    }
+    .nav-logo .dash { color: var(--orange); }
+    .nav-links {
+      display: flex; gap: 1.8rem;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--text-dim);
+      transition: color .25s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--cyan); }
+    .nav-right { display: flex; align-items: center; gap: 1rem; }
+    #navClock {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.82rem;
+      color: var(--cyan);
+      background: rgba(0,212,255,0.08);
+      border: 1px solid var(--border);
+      padding: .45rem 1rem;
+      border-radius: 5px;
+    }
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+    }
+
+    /* ═══════════════════════════════════════
+       HERO
+    ═══════════════════════════════════════ */
+    .hero {
+      min-height: 100vh;
+      padding: 80px 1.5rem 3rem;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      position: relative; z-index: 1;
+      background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(0,100,200,.12), transparent);
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(0,212,255,.08);
+      border: 1px solid var(--border);
+      padding: .4rem 1.4rem;
+      border-radius: 20px;
+      font-size: .75rem;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(3.5rem, 12vw, 9rem);
+      font-weight: 900;
+      letter-spacing: 12px;
+      line-height: 1;
+      margin-bottom: .5rem;
+      animation: glitch 5s infinite;
+    }
+    @keyframes glitch {
+      0%,95%,100% { text-shadow: 0 0 40px var(--cyan); }
+      96%  { text-shadow: -3px 0 var(--orange), 3px 0 var(--cyan); }
+      97%  { text-shadow: 3px 0 var(--red),    -3px 0 var(--cyan); }
+    }
+    .hero h1 .t { color: var(--cyan); }
+    .hero h1 .d { color: var(--orange); }
+    .hero-sub { font-size: .95rem; color: var(--text-dim); letter-spacing: 2px; margin-bottom: .4rem; }
+    .hero-city {
+      font-family: 'Orbitron', monospace;
+      font-size: 1rem;
+      color: var(--orange);
+      letter-spacing: 5px;
+      margin-bottom: 2.5rem;
+    }
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .9rem;
+      max-width: 740px; width: 100%;
+      margin-bottom: 2rem;
+    }
+    @media (max-width: 600px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 9px; padding: 1rem;
+      backdrop-filter: blur(8px);
+    }
+    .stat-n {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.9rem; font-weight: 700;
+      color: var(--cyan);
+    }
+    .stat-l {
+      font-size: .7rem; color: var(--text-dim);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-top: .25rem;
+    }
+    .hero-btns { display: flex; gap: .9rem; flex-wrap: wrap; justify-content: center; }
+    .btn {
+      padding: .75rem 1.8rem;
+      border-radius: 5px;
+      font-weight: 700; font-size: .85rem;
+      letter-spacing: 1px; text-transform: uppercase;
+      cursor: pointer; border: none;
+      transition: all .25s;
+      display: inline-flex; align-items: center; gap: .5rem;
+    }
+    .btn-p { background: linear-gradient(135deg,var(--cyan),#0077ff); color:#000; }
+    .btn-p:hover { transform: translateY(-2px); box-shadow: var(--glow-c); }
+    .btn-s { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-s:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    /* ═══════════════════════════════════════
+       SHARED SECTION STYLES
+    ═══════════════════════════════════════ */
+    section { padding: 5rem 1.5rem; position: relative; z-index: 1; }
+    .section-header { text-align: center; margin-bottom: 3rem; }
+    .sec-badge {
+      display: inline-block;
+      background: rgba(0,212,255,.08);
+      border: 1px solid var(--border);
+      padding: .28rem .9rem; border-radius: 20px;
+      font-size: .7rem; letter-spacing: 2.5px;
+      text-transform: uppercase; color: var(--cyan);
+      margin-bottom: .9rem;
+    }
+    .sec-badge.orange { background: rgba(255,107,53,.08); border-color: rgba(255,107,53,.25); color: var(--orange); }
+    .sec-badge.red    { background: rgba(255,51,102,.08);  border-color: rgba(255,51,102,.25);  color: var(--red); }
+    .sec-title {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(1.4rem, 4vw, 2.3rem);
+      font-weight: 700; margin-bottom: .9rem;
+    }
+    .sec-title span.c { color: var(--cyan); }
+    .sec-title span.o { color: var(--orange); }
+    .sec-title span.r { color: var(--red); }
+    .sec-desc { color: var(--text-dim); max-width: 580px; margin: 0 auto; line-height: 1.75; font-size: .9rem; }
+    .divider {
+      max-width: 1200px; margin: 0 auto;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      position: relative; z-index: 1;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+      transition: transform .25s, box-shadow .25s, border-color .25s;
+    }
+    .card:hover { transform: translateY(-3px); }
+
+    /* ═══════════════════════════════════════
+       ANIMATIONS
+    ═══════════════════════════════════════ */
+    @keyframes blink   { 0%,49%{opacity:1}50%,100%{opacity:.45} }
+    @keyframes pulse   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+    @keyframes scan    { 0%{top:-2px} 100%{top:calc(100% + 2px)} }
+    @keyframes alertPulse {
+      0%,100%{box-shadow:0 0 0 0 rgba(255,51,102,.5)}
+      50%{box-shadow:0 0 0 16px rgba(255,51,102,0)}
+    }
+
+    /* ═══════════════════════════════════════
+       CCTV SECTION
+    ═══════════════════════════════════════ */
+    #cctv { background: linear-gradient(180deg,transparent,rgba(0,40,80,.07),transparent); }
+    .cctv-embed-wrap {
+      max-width: 960px; margin: 0 auto 2.5rem;
+      border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--glow-c);
+      position: relative;
+    }
+    .cctv-embed-wrap iframe {
+      width: 100%; height: 480px; border: none; display: block;
+    }
+    .cctv-embed-fallback {
+      display: none;
+      background: rgba(5,13,26,0.95);
+      padding: 2rem;
+      text-align: center;
+    }
+    .cctv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 1.4rem;
+      max-width: 1200px; margin: 0 auto;
+    }
+    .cctv-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .cctv-feed {
+      position: relative; overflow: hidden;
+      width: 100%; height: 175px;
+      background: #050d1a;
+      cursor: pointer;
+    }
+    .cctv-feed canvas { width:100%; height:100%; display:block; }
+    .scanlines::after {
+      content:''; position:absolute; inset:0; pointer-events:none;
+      background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.1) 3px,rgba(0,0,0,.1) 4px);
+    }
+    .cctv-top {
+      position:absolute; top:0; left:0; right:0;
+      display:flex; justify-content:space-between;
+      padding:7px 9px;
+      background: linear-gradient(180deg,rgba(0,0,0,.75),transparent);
+      z-index:2;
+    }
+    .live-badge {
+      background: #e8002d; color: #fff;
+      font-size: .6rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 2px;
+      letter-spacing: 2px;
+      animation: blink 2s infinite;
+    }
+    .cam-id { font-family:'Orbitron',monospace; font-size:.6rem; color:var(--cyan); }
+    .ml-scanline {
+      position:absolute; left:0; right:0; height:2px;
+      background: linear-gradient(90deg,transparent,var(--cyan),transparent);
+      animation: scan 3.5s linear infinite;
+      z-index:3;
+    }
+    .cctv-info { padding: .8rem 1rem; }
+    .cctv-loc { font-weight:600; font-size:.84rem; margin-bottom:.35rem; }
+    .cctv-status-row { display:flex; align-items:center; gap:.5rem; }
+    .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; animation: pulse 2s infinite; }
+    .dot.green  { background:var(--green); }
+    .dot.yellow { background:var(--yellow); }
+    .dot.red    { background:var(--red); }
+    .cctv-status-txt { font-size:.73rem; color:var(--text-dim); }
+
+    /* ═══════════════════════════════════════
+       TOURISM
+    ═══════════════════════════════════════ */
+    #tourism { background: linear-gradient(180deg,transparent,rgba(255,107,53,.05),transparent); }
+    .places-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px,1fr));
+      gap: 1.4rem; max-width: 1200px; margin: 0 auto 3.5rem;
+    }
+    .place-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+      transition: transform .25s, border-color .25s, box-shadow .25s;
+    }
+    .place-card:hover { transform:translateY(-4px); border-color:rgba(255,107,53,.5); box-shadow:var(--glow-o); }
+    .place-img {
+      height: 150px;
+      display: flex; align-items:center; justify-content:center;
+      font-size: 3.5rem;
+    }
+    .place-body { padding:1.1rem; }
+    .place-name { font-weight:700; font-size:.95rem; margin-bottom:.4rem; }
+    .place-desc { font-size:.8rem; color:var(--text-dim); line-height:1.6; margin-bottom:.75rem; }
+    .tags { display:flex; gap:.4rem; flex-wrap:wrap; }
+    .tag {
+      font-size:.68rem; padding:.2rem .6rem; border-radius:10px;
+      border: 1px solid;
+    }
+    .tag.c { color:var(--cyan);   background:rgba(0,212,255,.08);  border-color:rgba(0,212,255,.25); }
+    .tag.o { color:var(--orange); background:rgba(255,107,53,.08); border-color:rgba(255,107,53,.25); }
+    .tag.g { color:var(--green);  background:rgba(0,255,136,.08);  border-color:rgba(0,255,136,.25); }
+
+    /* Commute Guide */
+    .commute-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px,1fr));
+      gap: 1.4rem; max-width: 1200px; margin: 0 auto;
+    }
+    .commute-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.5rem;
+    }
+    .commute-icon { font-size:2.2rem; margin-bottom:.8rem; }
+    .commute-title { font-weight:700; font-size:.92rem; color:var(--orange); margin-bottom:.9rem; }
+    .steps { list-style:none; }
+    .steps li {
+      display:flex; align-items:flex-start; gap:.7rem;
+      font-size:.8rem; color:var(--text-dim);
+      padding:.38rem 0;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .steps li:last-child { border-bottom:none; }
+    .sn {
+      min-width:20px; height:20px;
+      background:rgba(255,107,53,.18);
+      border:1px solid rgba(255,107,53,.3);
+      border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:.62rem; font-weight:700; color:var(--orange);
+      flex-shrink:0;
+    }
+
+    /* ═══════════════════════════════════════
+       TRAFFIC
+    ═══════════════════════════════════════ */
+    #traffic { background: linear-gradient(180deg,transparent,rgba(0,212,255,.04),transparent); }
+    .traffic-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.4rem; max-width: 1200px; margin: 0 auto;
+    }
+    @media (max-width:900px) { .traffic-grid { grid-template-columns:1fr; } }
+    .traffic-map-card {
+      grid-column: 1 / -1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+      height: 400px; position: relative;
+    }
+    #trafficCanvas { width:100%; height:100%; display:block; }
+    .map-legend {
+      position: absolute; top:1rem; left:1rem;
+      background: rgba(3,8,18,.9);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: .9rem 1rem;
+      z-index:5;
+    }
+    .ml-live {
+      font-family:'Orbitron',monospace; font-size:.7rem;
+      color:var(--cyan); letter-spacing:2px;
+      display:flex; align-items:center; gap:.5rem;
+      margin-bottom:.7rem;
+    }
+    .ml-live-dot {
+      width:8px; height:8px; border-radius:50%;
+      background:var(--green);
+      animation: pulse 1.5s infinite;
+    }
+    .legend-item { display:flex; align-items:center; gap:.5rem; font-size:.72rem; color:var(--text-dim); margin:.25rem 0; }
+    .leg-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+    /* ML panels */
+    .ml-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.5rem;
+    }
+    .ml-panel-title {
+      font-family:'Orbitron',monospace; font-size:.8rem;
+      color:var(--cyan); letter-spacing:2px;
+      display:flex; align-items:center; gap:.6rem;
+      margin-bottom:1.2rem;
+    }
+    .ml-chip {
+      background: rgba(0,212,255,.1);
+      border:1px solid var(--border);
+      border-radius:4px; padding:.18rem .5rem;
+      font-size:.6rem; letter-spacing:1px;
+    }
+    .route-row {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:.65rem 0;
+      border-bottom:1px solid rgba(255,255,255,.04);
+    }
+    .route-row:last-of-type { border-bottom:none; }
+    .route-name { font-size:.82rem; font-weight:600; }
+    .route-sub  { font-size:.7rem; color:var(--text-dim); margin-top:.15rem; }
+    .route-time { font-family:'Orbitron',monospace; font-size:.85rem; color:var(--cyan); text-align:right; }
+    .route-st   { font-size:.68rem; text-align:right; margin-top:.15rem; }
+    .route-st.cl { color:var(--green); }
+    .route-st.mo { color:var(--yellow); }
+    .route-st.hv { color:var(--red); }
+
+    /* Congestion bars */
+    .bar-label { display:flex; justify-content:space-between; font-size:.74rem; color:var(--text-dim); margin-bottom:.28rem; }
+    .bar-wrap { height:6px; background:rgba(255,255,255,.08); border-radius:3px; overflow:hidden; margin-bottom:.9rem; }
+    .bar-fill { height:100%; border-radius:3px; transition:width 1s ease; }
+    .bar-fill.g { background:var(--green); }
+    .bar-fill.y { background:var(--yellow); }
+    .bar-fill.r { background:var(--red); }
+
+    /* ═══════════════════════════════════════
+       EMERGENCY / IRFD
+    ═══════════════════════════════════════ */
+    #emergency { background: linear-gradient(180deg,transparent,rgba(255,51,102,.04),transparent); }
+    .emg-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1.4rem; max-width: 1200px; margin: 0 auto;
+    }
+    @media (max-width:900px) { .emg-grid { grid-template-columns:1fr; } }
+    .irfd-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,51,102,.25);
+      border-radius: 12px; padding: 2rem;
+    }
+    .irfd-title {
+      font-family:'Orbitron',monospace; font-size:.9rem;
+      color:var(--red); letter-spacing:2px;
+      display:flex; align-items:center; gap:.6rem;
+      margin-bottom:1.5rem;
+    }
+    .f-label {
+      display:block; font-size:.74rem; color:var(--text-dim);
+      text-transform:uppercase; letter-spacing:1px;
+      margin-bottom:.4rem;
+    }
+    .f-group { margin-bottom:1.1rem; }
+    .f-input {
+      width:100%; background:rgba(255,255,255,.04);
+      border:1px solid var(--border); border-radius:6px;
+      padding:.65rem 1rem; color:var(--text); font-size:.88rem;
+      font-family:'Orbitron',monospace; letter-spacing:3px;
+      text-transform:uppercase; transition:all .25s;
+    }
+    .f-input.plain { font-family:'Inter',sans-serif; letter-spacing:0; text-transform:none; }
+    .f-input:focus { outline:none; border-color:var(--red); box-shadow:0 0 10px rgba(255,51,102,.2); }
+    .f-select {
+      width:100%; background:rgba(255,255,255,.04);
+      border:1px solid var(--border); border-radius:6px;
+      padding:.65rem 1rem; color:var(--text); font-size:.85rem;
+      cursor:pointer; transition:border-color .25s;
+    }
+    .f-select:focus { outline:none; border-color:var(--red); }
+    .f-select option { background:#0a1628; }
+
+    /* Plate scanner display */
+    .plate-scanner {
+      background:#050d1a; border:2px solid var(--border);
+      border-radius:8px; padding:1.2rem;
+      text-align:center; margin-top:.6rem;
+      position:relative; overflow:hidden;
+    }
+    .plate-num {
+      font-family:'Orbitron',monospace;
+      font-size:2rem; font-weight:700;
+      letter-spacing:8px; color:var(--cyan);
+      text-shadow:0 0 18px var(--cyan);
+    }
+    .plate-reg { font-size:.65rem; color:var(--text-dim); letter-spacing:2px; margin-top:.25rem; }
+
+    /* Alert type buttons */
+    .alert-types { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; margin-bottom:1.3rem; }
+    .at-btn {
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--border); border-radius:8px;
+      padding:.75rem .5rem; cursor:pointer;
+      text-align:center; transition:all .25s;
+    }
+    .at-btn:hover, .at-btn.active {
+      border-color:var(--red);
+      background:rgba(255,51,102,.1);
+    }
+    .at-icon { font-size:1.4rem; margin-bottom:.25rem; }
+    .at-name { font-size:.72rem; font-weight:600; }
+
+    .btn-alert {
+      width:100%; background:linear-gradient(135deg,#e8002d,#aa0022);
+      color:#fff; border:none; padding:1rem;
+      border-radius:6px; font-weight:700; font-size:.88rem;
+      font-family:'Orbitron',monospace; letter-spacing:2px;
+      cursor:pointer; transition:all .25s;
+      animation: alertPulse 2.5s infinite;
+    }
+    .btn-alert:hover { transform:translateY(-2px); box-shadow:var(--glow-r); }
+    .alert-sent {
+      display:none; margin-top:1rem; padding:.75rem 1rem;
+      border-radius:6px; font-size:.82rem; text-align:center;
+      background:rgba(0,255,136,.08); border:1px solid rgba(0,255,136,.3);
+      color:var(--green);
+    }
+    .alert-sent.show { display:block; }
+
+    /* Officials card */
+    .officials-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 2rem;
+    }
+    .officials-title {
+      font-family:'Orbitron',monospace; font-size:.85rem;
+      color:var(--cyan); letter-spacing:2px;
+      display:flex; align-items:center; gap:.6rem;
+      margin-bottom:1.5rem;
+    }
+    .official-row {
+      display:flex; align-items:center; gap:.9rem;
+      padding:.85rem 0;
+      border-bottom:1px solid rgba(255,255,255,.04);
+    }
+    .official-row:last-of-type { border-bottom:none; }
+    .off-icon {
+      width:44px; height:44px; border-radius:8px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.25rem; flex-shrink:0;
+    }
+    .off-icon.police  { background:rgba(0,100,255,.15); border:1px solid rgba(0,100,255,.3); }
+    .off-icon.fire    { background:rgba(255,100,0,.15);  border:1px solid rgba(255,100,0,.3); }
+    .off-icon.medical { background:rgba(0,255,136,.12);  border:1px solid rgba(0,255,136,.3); }
+    .off-icon.traffic { background:rgba(255,204,0,.12);  border:1px solid rgba(255,204,0,.3); }
+    .off-icon.cdrrmo  { background:rgba(255,51,102,.12); border:1px solid rgba(255,51,102,.3); }
+    .off-info { flex:1; }
+    .off-name { font-weight:600; font-size:.87rem; }
+    .off-dept { font-size:.72rem; color:var(--text-dim); margin-top:.15rem; }
+    .off-contact { text-align:right; }
+    .off-num { font-family:'Orbitron',monospace; font-size:.76rem; color:var(--cyan); }
+    .off-online { font-size:.68rem; color:var(--green); margin-top:.18rem; }
+    .hotline-box {
+      margin-top:1.3rem; text-align:center;
+      background:rgba(255,51,102,.08);
+      border:1px solid rgba(255,51,102,.3);
+      border-radius:8px; padding:1rem;
+    }
+    .hotline-label { font-size:.7rem; color:var(--text-dim); letter-spacing:2px; margin-bottom:.25rem; }
+    .hotline-num {
+      font-family:'Orbitron',monospace;
+      font-size:2.2rem; font-weight:700; color:var(--red);
+    }
+    .hotline-sub { font-size:.7rem; color:var(--text-dim); margin-top:.2rem; }
+
+    /* ═══════════════════════════════════════
+       MAP SECTION
+    ═══════════════════════════════════════ */
+    #map-section { padding: 2rem 1.5rem 5rem; }
+    .map-wrap {
+      max-width: 1400px; margin: 0 auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+    }
+    .map-topbar {
+      display:flex; justify-content:space-between; align-items:center;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,212,255,.02);
+      flex-wrap:wrap; gap:.7rem;
+    }
+    .map-title-bar {
+      font-family:'Orbitron',monospace; font-size:.85rem;
+      color:var(--cyan); letter-spacing:2px;
+    }
+    .map-btns { display:flex; gap:.6rem; flex-wrap:wrap; }
+    .map-btn {
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--border); border-radius:6px;
+      padding:.38rem .8rem; font-size:.73rem;
+      color:var(--text-dim); cursor:pointer;
+      transition:all .22s;
+      display:flex; align-items:center; gap:.35rem;
+    }
+    .map-btn:hover, .map-btn.active {
+      border-color:var(--cyan); color:var(--cyan);
+      background:rgba(0,212,255,.1);
+    }
+    #main-map { height: 520px; }
+    .map-footer-bar {
+      display:grid; grid-template-columns:repeat(4,1fr);
+      padding:.9rem 1.5rem;
+      border-top:1px solid var(--border); gap:.7rem;
+    }
+    @media (max-width:600px) { .map-footer-bar { grid-template-columns:repeat(2,1fr); } }
+    .map-stat-val {
+      font-family:'Orbitron',monospace; font-size:1rem; color:var(--cyan);
+    }
+    .map-stat-lbl { font-size:.68rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-top:.2rem; }
+
+    /* Leaflet popup override */
+    .leaflet-popup-content-wrapper {
+      background:transparent !important;
+      border:none !important;
+      box-shadow: 0 8px 28px rgba(0,0,0,.7) !important;
+      padding:0 !important;
+    }
+    .leaflet-popup-content { margin:0 !important; padding:0 !important; }
+    .leaflet-popup-tip-container { display:none !important; }
+    .leaflet-container { background:#04090f !important; }
+    .leaflet-control-zoom a { background:#0a1628 !important; color:var(--cyan) !important; border-color:var(--border) !important; }
+
+    /* ═══════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════ */
+    footer {
+      background: rgba(3,8,18,.97);
+      border-top: 1px solid var(--border);
+      padding: 3rem 1.5rem;
+      text-align: center;
+      position: relative; z-index:1;
+    }
+    .footer-logo {
+      font-family:'Orbitron',monospace;
+      font-size:1.9rem; font-weight:900;
+      color:var(--cyan); letter-spacing:6px;
+      text-shadow:0 0 18px var(--cyan);
+      margin-bottom:.8rem;
+    }
+    .footer-sub { color:var(--text-dim); font-size:.82rem; margin-bottom:1.5rem; line-height:1.7; }
+    .footer-links { display:flex; justify-content:center; gap:1.8rem; flex-wrap:wrap; margin-bottom:2rem; }
+    .footer-links a { color:var(--text-dim); font-size:.78rem; transition:color .2s; }
+    .footer-links a:hover { color:var(--cyan); }
+    .footer-copy { color:var(--text-dim); font-size:.72rem; }
+  </style>
+</head>
+<body>
+
+<!-- Stars canvas background -->
+<canvas id="starsBg"></canvas>
+
+<!-- ════════════════════════════════
+     NAVIGATION
+════════════════════════════════ -->
+<nav>
+  <div class="nav-logo">TRI<span class="dash">-</span>FFIC</div>
+  <ul class="nav-links">
+    <li><a href="#home"        class="active">Home</a></li>
+    <li><a href="#cctv">       Live Feeds</a></li>
+    <li><a href="#tourism">    Tourism</a></li>
+    <li><a href="#traffic">    Traffic</a></li>
+    <li><a href="#emergency">  Emergency</a></li>
+    <li><a href="#map-section">Map &amp; GPS</a></li>
+  </ul>
+  <div class="nav-right">
+    <div id="navClock">00:00:00 PHT</div>
+  </div>
+</nav>
+
+<!-- ════════════════════════════════
+     HERO
+════════════════════════════════ -->
+<section class="hero" id="home">
+  <div class="hero-badge">🇵🇭 &nbsp; Olongapo City Smart Navigation &amp; Safety System</div>
+  <h1><span class="t">TRI</span><span class="d">-</span><span class="t">FFIC</span></h1>
+  <p class="hero-sub">Traffic &amp; Road Intelligence for Cities</p>
+  <p class="hero-city">OLONGAPO CITY · ZAMBALES · PHILIPPINES</p>
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-n" id="sCams">6</div><div class="stat-l">Live Cameras</div></div>
+    <div class="stat-card"><div class="stat-n" id="sRoutes">12</div><div class="stat-l">Active Routes</div></div>
+    <div class="stat-card"><div class="stat-n" id="sSpots">8</div><div class="stat-l">Tourist Spots</div></div>
+    <div class="stat-card"><div class="stat-n" id="sAlerts">0</div><div class="stat-l">Alerts Sent</div></div>
+  </div>
+  <div class="hero-btns">
+    <a href="#map-section" class="btn btn-p"><i class="fas fa-map-marked-alt"></i> Open Live Map</a>
+    <a href="#cctv"        class="btn btn-s"><i class="fas fa-video"></i> CCTV Feeds</a>
+  </div>
+</section>
+
+<!-- ════════════════════════════════
+     CCTV SECTION
+════════════════════════════════ -->
+<section id="cctv">
+  <div class="section-header">
+    <div class="sec-badge">Live Surveillance</div>
+    <h2 class="sec-title">CCTV <span class="c">Live Feeds</span></h2>
+    <p class="sec-desc">
+      Real-time CCTV surveillance from key roads in Olongapo City.<br>
+      Live source: <a href="https://www.webcamtaxi.com/en/philippines/central-luzon/olongapo-city-cctv-cams.html"
+        target="_blank" rel="noopener" style="color:var(--cyan);">WebcamTaxi — Olongapo City</a>
+    </p>
+  </div>
+
+  <!-- Main embed -->
+  <div class="cctv-embed-wrap">
+    <iframe
+      id="mainCctvFrame"
+      src="https://www.webcamtaxi.com/en/philippines/central-luzon/olongapo-city-cctv-cams.html"
+      title="Olongapo City Live CCTV — WebcamTaxi"
+      loading="lazy"
+      allowfullscreen
+      sandbox="allow-scripts allow-same-origin allow-popups">
+    </iframe>
+    <div class="cctv-embed-fallback" id="cctvFallback">
+      <div style="font-size:2.5rem;margin-bottom:1rem;">📷</div>
+      <div style="font-weight:700;margin-bottom:.5rem;">Live CCTV feed blocked by browser policy</div>
+      <div style="font-size:.85rem;color:var(--text-dim);margin-bottom:1.2rem;">
+        Your browser restricts embedding this page. Open it directly:
+      </div>
+      <a href="https://www.webcamtaxi.com/en/philippines/central-luzon/olongapo-city-cctv-cams.html"
+        target="_blank" class="btn btn-p" style="display:inline-flex;">
+        <i class="fas fa-external-link-alt"></i> Open WebcamTaxi Olongapo
+      </a>
+    </div>
+  </div>
+
+  <!-- Simulated camera cards with ML overlay -->
+  <div class="cctv-grid">
+    <!-- Camera 1 -->
+    <div class="cctv-card">
+      <div class="cctv-feed scanlines">
+        <canvas id="cam1" width="300" height="175"></canvas>
+        <div class="cctv-top">
+          <span class="live-badge">● LIVE</span>
+          <span class="cam-id">CAM-OLP-001</span>
+        </div>
+        <div class="ml-scanline"></div>
+      </div>
+      <div class="cctv-info">
+        <div class="cctv-loc">📍 Rizal Avenue — City Center</div>
+        <div class="cctv-status-row">
+          <div class="dot yellow"></div>
+          <span class="cctv-status-txt">Moderate · ML: <b id="c1v">67</b> veh/hr</span>
+        </div>
+      </div>
+    </div>
+    <!-- Camera 2 -->
+    <div class="cctv-card">
+      <div class="cctv-feed scanlines">
+        <canvas id="cam2" width="300" height="175"></canvas>
+        <div class="cctv-top">
+          <span class="live-badge">● LIVE</span>
+          <span class="cam-id">CAM-OLP-002</span>
+        </div>
+        <div class="ml-scanline" style="animation-delay:.8s"></div>
+      </div>
+      <div class="cctv-info">
+        <div class="cctv-loc">📍 Magsaysay Drive — SM Olongapo</div>
+        <div class="cctv-status-row">
+          <div class="dot red"></div>
+          <span class="cctv-status-txt">Heavy · ML: <b id="c2v">142</b> veh/hr</span>
+        </div>
+      </div>
+    </div>
+    <!-- Camera 3 -->
+    <div class="cctv-card">
+      <div class="cctv-feed scanlines">
+        <canvas id="cam3" width="300" height="175"></canvas>
+        <div class="cctv-top">
+          <span class="live-badge">● LIVE</span>
+          <span class="cam-id">CAM-OLP-003</span>
+        </div>
+        <div class="ml-scanline" style="animation-delay:1.5s"></div>
+      </div>
+      <div class="cctv-info">
+        <div class="cctv-loc">📍 SBMA Main Gate — National Road</div>
+        <div class="cctv-status-row">
+          <div class="dot green"></div>
+          <span class="cctv-status-txt">Clear · ML: <b id="c3v">34</b> veh/hr</span>
+        </div>
+      </div>
+    </div>
+    <!-- Camera 4 -->
+    <div class="cctv-card">
+      <div class="cctv-feed scanlines">
+        <canvas id="cam4" width="300" height="175"></canvas>
+        <div class="cctv-top">
+          <span class="live-badge">● LIVE</span>
+          <span class="cam-id">CAM-OLP-004</span>
+        </div>
+        <div class="ml-scanline" style="animation-delay:.4s"></div>
+      </div>
+      <div class="cctv-info">
+        <div class="cctv-loc">📍 Gordon Ave — City Hall Area</div>
+        <div class="cctv-status-row">
+          <div class="dot yellow"></div>
+          <span class="cctv-status-txt">Moderate · ML: <b id="c4v">89</b> veh/hr</span>
+        </div>
+      </div>
+    </div>
+    <!-- Camera 5 -->
+    <div class="cctv-card">
+      <div class="cctv-feed scanlines">
+        <canvas id="cam5" width="300" height="175"></canvas>
+        <div class="cctv-top">
+          <span class="live-badge">● LIVE</span>
+          <span class="cam-id">CAM-OLP-005</span>
+        </div>
+        <div class="ml-scanline" style="animation-delay:1.2s"></div>
+      </div>
+      <div class="cctv-info">
+        <div class="cctv-loc">📍 Harbor Point — Waterfront Rd</div>
+        <div class="cctv-status-row">
+          <div class="dot green"></div>
+          <span class="cctv-status-txt">Clear · ML: <b id="c5v">28</b> veh/hr</span>
+        </div>
+      </div>
+    </div>
+    <!-- Camera 6 -->
+    <div class="cctv-card">
+      <div class="cctv-feed scanlines">
+        <canvas id="cam6" width="300" height="175"></canvas>
+        <div class="cctv-top">
+          <span class="live-badge">● LIVE</span>
+          <span class="cam-id">CAM-OLP-006</span>
+        </div>
+        <div class="ml-scanline" style="animation-delay:2s"></div>
+      </div>
+      <div class="cctv-info">
+        <div class="cctv-loc">📍 Rizal Triangle — Public Market</div>
+        <div class="cctv-status-row">
+          <div class="dot red"></div>
+          <span class="cctv-status-txt">Heavy · ML: <b id="c6v">156</b> veh/hr</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════
+     TOURISM
+════════════════════════════════ -->
+<section id="tourism">
+  <div class="section-header">
+    <div class="sec-badge orange">Explore Olongapo</div>
+    <h2 class="sec-title">Tourism &amp; <span class="o">Destinations</span></h2>
+    <p class="sec-desc">Discover popular places, attractions, and detailed commute guides to help you explore Olongapo City and the Subic Bay area.</p>
+  </div>
+
+  <div class="places-grid">
+    <div class="place-card">
+      <div class="place-img" style="background:linear-gradient(135deg,#0a3d62,#1e6091)">🌊</div>
+      <div class="place-body">
+        <div class="place-name">Subic Bay Freeport Zone</div>
+        <div class="place-desc">World-class freeport and special economic zone with beaches, resorts, duty-free shopping, and water sports. Former US Naval Base turned tourism hub.</div>
+        <div class="tags"><span class="tag c">Beach</span><span class="tag c">Shopping</span><span class="tag o">Must Visit</span></div>
+      </div>
+    </div>
+    <div class="place-card">
+      <div class="place-img" style="background:linear-gradient(135deg,#1a5c0a,#2d8a15)">🦁</div>
+      <div class="place-body">
+        <div class="place-name">Zoobic Safari</div>
+        <div class="place-desc">Philippines' first and only drive-through tiger safari inside SBFZ. Home to Siberian tigers, crocodiles, exotic birds, and over 80 wildlife species.</div>
+        <div class="tags"><span class="tag g">Wildlife</span><span class="tag c">Family</span><span class="tag o">Popular</span></div>
+      </div>
+    </div>
+    <div class="place-card">
+      <div class="place-img" style="background:linear-gradient(135deg,#003d66,#0077b3)">🐬</div>
+      <div class="place-body">
+        <div class="place-name">Ocean Adventure</div>
+        <div class="place-desc">Southeast Asia's first open-water marine theme park. Features dolphin and sea lion shows, shark encounters, and interactive marine wildlife exhibits.</div>
+        <div class="tags"><span class="tag c">Marine Life</span><span class="tag c">Shows</span><span class="tag o">Top Rated</span></div>
+      </div>
+    </div>
+    <div class="place-card">
+      <div class="place-img" style="background:linear-gradient(135deg,#3d0099,#6600cc)">🛍️</div>
+      <div class="place-body">
+        <div class="place-name">Harbor Point Mall</div>
+        <div class="place-desc">Premium lifestyle mall inside SBFZ with international brands, fine dining, and entertainment. Features stunning Subic Bay views and duty-free options.</div>
+        <div class="tags"><span class="tag c">Shopping</span><span class="tag c">Dining</span><span class="tag g">Free Entry</span></div>
+      </div>
+    </div>
+    <div class="place-card">
+      <div class="place-img" style="background:linear-gradient(135deg,#994d00,#cc6600)">🏖️</div>
+      <div class="place-body">
+        <div class="place-name">Camayan Beach Resort</div>
+        <div class="place-desc">Beautiful white sand beach resort inside Subic Bay Freeport. Perfect for swimming, snorkeling, kayaking, and water sports with stunning ocean scenery.</div>
+        <div class="tags"><span class="tag c">Beach</span><span class="tag c">Swimming</span><span class="tag c">Snorkeling</span></div>
+      </div>
+    </div>
+    <div class="place-card">
+      <div class="place-img" style="background:linear-gradient(135deg,#006633,#009944)">⛳</div>
+      <div class="place-body">
+        <div class="place-name">Subic Bay Golf Club</div>
+        <div class="place-desc">18-hole championship golf course surrounded by tropical forest inside SBFZ. One of the finest courses in the Philippines with mountain and bay views.</div>
+        <div class="tags"><span class="tag g">Golf</span><span class="tag c">Sports</span><span class="tag c">Leisure</span></div>
+      </div>
+    </div>
+    <div class="place-card">
+      <div class="place-img" style="background:linear-gradient(135deg,#660044,#990066)">🏬</div>
+      <div class="place-body">
+        <div class="place-name">SM City Olongapo</div>
+        <div class="place-desc">Major shopping mall in the city center with department stores, cinemas, restaurants, and entertainment hubs serving locals and tourists alike.</div>
+        <div class="tags"><span class="tag c">Shopping</span><span class="tag c">Cinema</span><span class="tag o">City Center</span></div>
+      </div>
+    </div>
+    <div class="place-card">
+      <div class="place-img" style="background:linear-gradient(135deg,#003366,#004499)">🏛️</div>
+      <div class="place-body">
+        <div class="place-name">Olongapo City Hall &amp; Rizal Triangle</div>
+        <div class="place-desc">Civic center of Olongapo featuring the historic Rizal Triangle park, heritage sites, and the seat of local government. A cultural landmark.</div>
+        <div class="tags"><span class="tag c">Heritage</span><span class="tag c">Culture</span><span class="tag g">Free</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Commute Guide -->
+  <div class="section-header" style="margin-top:3rem">
+    <div class="sec-badge orange">How to Get There</div>
+    <h3 class="sec-title" style="font-size:1.7rem">Commute <span class="o">Guide</span></h3>
+  </div>
+  <div class="commute-grid">
+    <div class="commute-card">
+      <div class="commute-icon">🚌</div>
+      <div class="commute-title">From Manila (Inter-city Bus)</div>
+      <ul class="steps">
+        <li><span class="sn">1</span>Go to EDSA-Cubao or Pasay Terminal</li>
+        <li><span class="sn">2</span>Board Victory Liner or Five Star Bus to Olongapo</li>
+        <li><span class="sn">3</span>Travel time: 3–4 hrs via SCTEX / NLEX</li>
+        <li><span class="sn">4</span>Fare: ₱200–₱350 (Regular / Air-con)</li>
+        <li><span class="sn">5</span>Alight at Olongapo Grand Terminal</li>
+      </ul>
+    </div>
+    <div class="commute-card">
+      <div class="commute-icon">🚐</div>
+      <div class="commute-title">City Jeepney Routes</div>
+      <ul class="steps">
+        <li><span class="sn">1</span>Route A: Rizal Ave → SM Olongapo → SBMA Gate</li>
+        <li><span class="sn">2</span>Route B: Public Market → City Hall → Harbor Point</li>
+        <li><span class="sn">3</span>Route C: Gordon Ave → Banicain → Calapacuan</li>
+        <li><span class="sn">4</span>Flag down at designated LTFRB stops</li>
+        <li><span class="sn">5</span>Minimum fare: ₱13 (first 4 km)</li>
+      </ul>
+    </div>
+    <div class="commute-card">
+      <div class="commute-icon">🛺</div>
+      <div class="commute-title">Tricycle (Short Distance)</div>
+      <ul class="steps">
+        <li><span class="sn">1</span>Available at all major intersections</li>
+        <li><span class="sn">2</span>Ideal for 1–3 km intra-barangay trips</li>
+        <li><span class="sn">3</span>Fare: ₱15–₱50 depending on distance</li>
+        <li><span class="sn">4</span>Special trip: negotiate with driver</li>
+        <li><span class="sn">5</span>Not permitted on national highways</li>
+      </ul>
+    </div>
+    <div class="commute-card">
+      <div class="commute-icon">🚘</div>
+      <div class="commute-title">Inside SBMA (Subic)</div>
+      <ul class="steps">
+        <li><span class="sn">1</span>SBMA Shuttle from Kalaklan Gate area</li>
+        <li><span class="sn">2</span>Grab ride-hailing available inside SBFZ</li>
+        <li><span class="sn">3</span>Bicycle &amp; car rentals at the gate</li>
+        <li><span class="sn">4</span>SBMA Shuttle: ₱20–₱50 per trip</li>
+        <li><span class="sn">5</span>Bicycle rental: ₱100–₱200 / hour</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════
+     TRAFFIC MOBILITY
+════════════════════════════════ -->
+<section id="traffic">
+  <div class="section-header">
+    <div class="sec-badge">AI-Powered Traffic Analysis</div>
+    <h2 class="sec-title">Traffic <span class="c">Mobility</span> Center</h2>
+    <p class="sec-desc">Machine Learning–driven traffic monitoring using CCTV feed analysis (YOLOv8 + Random Forest). Detects vehicle density in real time and suggests optimal routes to avoid congested roads.</p>
+  </div>
+
+  <div class="traffic-grid">
+    <!-- Heatmap canvas -->
+    <div class="traffic-map-card">
+      <canvas id="trafficCanvas"></canvas>
+      <div class="map-legend">
+        <div class="ml-live"><div class="ml-live-dot"></div>ML ENGINE ACTIVE</div>
+        <div class="legend-item"><div class="leg-dot" style="background:var(--green)"></div>Clear (0–30 veh/hr)</div>
+        <div class="legend-item"><div class="leg-dot" style="background:var(--yellow)"></div>Moderate (31–80 veh/hr)</div>
+        <div class="legend-item"><div class="leg-dot" style="background:var(--red)"></div>Heavy (81+ veh/hr)</div>
+        <div class="legend-item" style="margin-top:.4rem"><div class="leg-dot" style="background:var(--cyan)"></div>Recommended Route</div>
+      </div>
+    </div>
+
+    <!-- Route Optimizer -->
+    <div class="ml-panel">
+      <div class="ml-panel-title">
+        <i class="fas fa-route"></i> ML ROUTE OPTIMIZER
+        <span class="ml-chip">YOLOv8</span>
+      </div>
+      <div class="route-row">
+        <div>
+          <div class="route-name">🔵 Rizal Ave → SBMA Gate</div>
+          <div class="route-sub">Via National Road · Recommended</div>
+        </div>
+        <div>
+          <div class="route-time" id="rt1">12 min</div>
+          <div class="route-st cl">● Clear</div>
+        </div>
+      </div>
+      <div class="route-row">
+        <div>
+          <div class="route-name">🟡 Magsaysay → City Hall</div>
+          <div class="route-sub">Via Gordon Ave · Alternate</div>
+        </div>
+        <div>
+          <div class="route-time" id="rt2">18 min</div>
+          <div class="route-st mo">● Moderate</div>
+        </div>
+      </div>
+      <div class="route-row">
+        <div>
+          <div class="route-name">🔴 SM Area → Public Market</div>
+          <div class="route-sub">Via Rizal Triangle · Avoid</div>
+        </div>
+        <div>
+          <div class="route-time" id="rt3">34 min</div>
+          <div class="route-st hv">● Heavy</div>
+        </div>
+      </div>
+      <div class="route-row">
+        <div>
+          <div class="route-name">🔵 Harbor Point → Zoobic</div>
+          <div class="route-sub">Via SBMA Inner Road · Best</div>
+        </div>
+        <div>
+          <div class="route-time" id="rt4">22 min</div>
+          <div class="route-st cl">● Clear</div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);font-size:.7rem;color:var(--text-dim)">
+        <i class="fas fa-brain"></i> ML Last Updated: <span id="mlUpdate">--:--:--</span><br>
+        <span style="margin-top:.3rem;display:block">Model: YOLOv8 + Random Forest &nbsp;·&nbsp; Accuracy: 94.2%</span>
+      </div>
+    </div>
+
+    <!-- Congestion Analytics -->
+    <div class="ml-panel">
+      <div class="ml-panel-title">
+        <i class="fas fa-chart-bar"></i> CONGESTION ANALYTICS
+      </div>
+      <div class="bar-label"><span>Rizal Avenue</span><span id="bv1">67%</span></div>
+      <div class="bar-wrap"><div class="bar-fill y" id="bb1" style="width:67%"></div></div>
+
+      <div class="bar-label"><span>Magsaysay Drive</span><span id="bv2">89%</span></div>
+      <div class="bar-wrap"><div class="bar-fill r" id="bb2" style="width:89%"></div></div>
+
+      <div class="bar-label"><span>National Highway</span><span id="bv3">23%</span></div>
+      <div class="bar-wrap"><div class="bar-fill g" id="bb3" style="width:23%"></div></div>
+
+      <div class="bar-label"><span>Gordon Avenue</span><span id="bv4">54%</span></div>
+      <div class="bar-wrap"><div class="bar-fill y" id="bb4" style="width:54%"></div></div>
+
+      <div class="bar-label"><span>SBMA Inner Road</span><span id="bv5">18%</span></div>
+      <div class="bar-wrap"><div class="bar-fill g" id="bb5" style="width:18%"></div></div>
+
+      <div style="margin-top:.5rem;padding:.7rem;background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);border-radius:8px;font-size:.75rem;color:var(--green)">
+        <i class="fas fa-robot"></i> &nbsp; ML Prediction (next 30 min): Congestion expected to ease on Magsaysay Drive. Avoid SM area before 6 PM.
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════
+     EMERGENCY / IRFD
+════════════════════════════════ -->
+<section id="emergency">
+  <div class="section-header">
+    <div class="sec-badge red">Emergency Response</div>
+    <h2 class="sec-title">IRFD &amp; <span class="r">Emergency Alert</span></h2>
+    <p class="sec-desc">Intelligent Road Facility Detection — scan or enter a vehicle plate number detected by CCTV to dispatch an emergency alert instantly to Olongapo City officials.</p>
+  </div>
+
+  <div class="emg-grid">
+    <!-- IRFD Alert Form -->
+    <div class="irfd-card">
+      <div class="irfd-title"><i class="fas fa-shield-alt"></i> IRFD ALERT SYSTEM</div>
+
+      <div class="f-group">
+        <label class="f-label">Plate Number (CCTV / IRFD Scan)</label>
+        <input type="text" class="f-input" id="plateIn" placeholder="ABC 1234" maxlength="10"
+          oninput="onPlate(this)">
+        <div class="plate-scanner">
+          <div class="ml-scanline"></div>
+          <div class="plate-num" id="plateDisp">--- ----</div>
+          <div class="plate-reg">PHILIPPINES · ZAMBALES REGION III</div>
+        </div>
+      </div>
+
+      <div class="f-group">
+        <label class="f-label">Alert Type</label>
+        <div class="alert-types">
+          <div class="at-btn active" onclick="pickAlert(this,'fire')">
+            <div class="at-icon">🔥</div><div class="at-name">Fire</div>
+          </div>
+          <div class="at-btn" onclick="pickAlert(this,'medical')">
+            <div class="at-icon">🏥</div><div class="at-name">Medical</div>
+          </div>
+          <div class="at-btn" onclick="pickAlert(this,'police')">
+            <div class="at-icon">👮</div><div class="at-name">Police</div>
+          </div>
+          <div class="at-btn" onclick="pickAlert(this,'traffic')">
+            <div class="at-icon">🚦</div><div class="at-name">Traffic</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="f-group">
+        <label class="f-label">Incident Location</label>
+        <select class="f-select" id="locSel">
+          <option value="">Select Location…</option>
+          <option>Rizal Avenue</option>
+          <option>Magsaysay Drive</option>
+          <option>National Highway — SBMA Gate</option>
+          <option>Gordon Avenue</option>
+          <option>Rizal Triangle / Public Market</option>
+          <option>SM Olongapo Area</option>
+          <option>Harbor Point / Waterfront</option>
+          <option>SBMA Inner Road</option>
+          <option>Gordon College Area</option>
+          <option>Olongapo City Hall</option>
+        </select>
+      </div>
+
+      <div class="f-group">
+        <label class="f-label">Brief Description</label>
+        <input type="text" class="f-input plain" id="alertDesc" placeholder="Describe the incident…">
+      </div>
+
+      <button class="btn-alert" onclick="sendAlert()">
+        <i class="fas fa-satellite-dish"></i> &nbsp; DISPATCH EMERGENCY ALERT
+      </button>
+      <div class="alert-sent" id="alertSent">
+        ✅ Alert dispatched — Emergency units notified. ETA: 3–5 minutes.
+      </div>
+    </div>
+
+    <!-- Officials Directory -->
+    <div class="officials-card">
+      <div class="officials-title"><i class="fas fa-address-book"></i> EMERGENCY CONTACTS</div>
+
+      <div class="official-row">
+        <div class="off-icon police">🚔</div>
+        <div class="off-info">
+          <div class="off-name">Olongapo City Police Office</div>
+          <div class="off-dept">OCPO · Station 1 · City Proper</div>
+        </div>
+        <div class="off-contact">
+          <div class="off-num">047-222-2924</div>
+          <div class="off-online">● On Duty</div>
+        </div>
+      </div>
+
+      <div class="official-row">
+        <div class="off-icon fire">🚒</div>
+        <div class="off-info">
+          <div class="off-name">Bureau of Fire Protection</div>
+          <div class="off-dept">BFP Olongapo City Station</div>
+        </div>
+        <div class="off-contact">
+          <div class="off-num">047-224-2531</div>
+          <div class="off-online">● On Duty</div>
+        </div>
+      </div>
+
+      <div class="official-row">
+        <div class="off-icon medical">🏥</div>
+        <div class="off-info">
+          <div class="off-name">James L. Gordon Memorial Hospital</div>
+          <div class="off-dept">Emergency Ward · 24 / 7</div>
+        </div>
+        <div class="off-contact">
+          <div class="off-num">047-222-4386</div>
+          <div class="off-online">● Available</div>
+        </div>
+      </div>
+
+      <div class="official-row">
+        <div class="off-icon traffic">🚦</div>
+        <div class="off-info">
+          <div class="off-name">Traffic Management Office</div>
+          <div class="off-dept">OCTO · City Operations Center</div>
+        </div>
+        <div class="off-contact">
+          <div class="off-num">047-224-8512</div>
+          <div class="off-online">● Active</div>
+        </div>
+      </div>
+
+      <div class="official-row">
+        <div class="off-icon cdrrmo">🆘</div>
+        <div class="off-info">
+          <div class="off-name">CDRRMO Olongapo City</div>
+          <div class="off-dept">Disaster Risk Reduction · 24 / 7</div>
+        </div>
+        <div class="off-contact">
+          <div class="off-num">047-222-5100</div>
+          <div class="off-online">● Standby</div>
+        </div>
+      </div>
+
+      <div class="hotline-box">
+        <div class="hotline-label">NATIONAL EMERGENCY HOTLINE</div>
+        <div class="hotline-num">911</div>
+        <div class="hotline-sub">24 / 7 · Free from all networks</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════
+     MAP & GPS
+════════════════════════════════ -->
+<section id="map-section">
+  <div class="section-header">
+    <div class="sec-badge">Interactive Map</div>
+    <h2 class="sec-title">Live Map &amp; <span class="c">GPS Navigation</span></h2>
+    <p class="sec-desc">Real-time interactive map of Olongapo City and Subic Bay with tourist spots, traffic overlays, emergency services, and live GPS positioning.</p>
+  </div>
+
+  <div class="map-wrap">
+    <div class="map-topbar">
+      <div class="map-title-bar"><i class="fas fa-map-marked-alt"></i> &nbsp; OLONGAPO CITY — INTERACTIVE MAP</div>
+      <div class="map-btns">
+        <button class="map-btn active" id="btnTourism"  onclick="toggleLayer('tourism',this)"><i class="fas fa-landmark"></i> Tourism</button>
+        <button class="map-btn active" id="btnTraffic"  onclick="toggleLayer('traffic',this)"><i class="fas fa-car"></i> Traffic</button>
+        <button class="map-btn"        id="btnEmg"      onclick="toggleLayer('emergency',this)"><i class="fas fa-exclamation-triangle"></i> Emergency</button>
+        <button class="map-btn"                         onclick="getLocation()"><i class="fas fa-crosshairs"></i> My Location</button>
+      </div>
+    </div>
+    <div id="main-map"></div>
+    <div class="map-footer-bar">
+      <div><div class="map-stat-val" id="mZoom">14</div><div class="map-stat-lbl">Zoom Level</div></div>
+      <div><div class="map-stat-val" id="mLat">14.8395°N</div><div class="map-stat-lbl">Latitude</div></div>
+      <div><div class="map-stat-val" id="mLng">120.2827°E</div><div class="map-stat-lbl">Longitude</div></div>
+      <div><div class="map-stat-val" id="mPOI">8</div><div class="map-stat-lbl">Points of Interest</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════
+     FOOTER
+════════════════════════════════ -->
+<footer>
+  <div class="footer-logo">TRI-FFIC</div>
+  <p class="footer-sub">
+    Traffic &amp; Road Intelligence for Cities · Olongapo City Smart System<br>
+    CCTV Source: <a href="https://www.webcamtaxi.com/en/philippines/central-luzon/olongapo-city-cctv-cams.html"
+      target="_blank" style="color:var(--cyan)">WebcamTaxi — Olongapo City</a>
+  </p>
+  <div class="footer-links">
+    <a href="#home">Home</a>
+    <a href="#cctv">Live CCTV</a>
+    <a href="#tourism">Tourism</a>
+    <a href="#traffic">Traffic</a>
+    <a href="#emergency">Emergency</a>
+    <a href="#map-section">Map &amp; GPS</a>
+  </div>
+  <p class="footer-copy">
+    © 2025 TRI-FFIC System · Olongapo City · For demonstration &amp; planning purposes only
+  </p>
+</footer>
+
+<!-- Scripts -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════
+   STARS BACKGROUND
+═══════════════════════════════════════════════════ */
+(function(){
+  const c = document.getElementById('starsBg');
+  const ctx = c.getContext('2d');
+  let stars = [];
+  function resize(){
+    c.width  = window.innerWidth;
+    c.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  for(let i=0;i<180;i++){
+    stars.push({
+      x: Math.random()*window.innerWidth,
+      y: Math.random()*window.innerHeight,
+      r: Math.random()*1.4+.2,
+      o: Math.random(),
+      d: (Math.random()-.5)*.04
+    });
+  }
+  function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    stars.forEach(s=>{
+      s.o = Math.max(.05, Math.min(1, s.o+s.d));
+      if(Math.random()<.01) s.d *= -1;
+      ctx.beginPath();
+      ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle = `rgba(0,212,255,${s.o})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ═══════════════════════════════════════════════════
+   CLOCK
+═══════════════════════════════════════════════════ */
+function clock(){
+  const t = new Date().toLocaleTimeString('en-PH',{timeZone:'Asia/Manila',hour12:false});
+  document.getElementById('navClock').textContent = t + ' PHT';
+}
+setInterval(clock,1000); clock();
+
+/* ═══════════════════════════════════════════════════
+   CCTV SIMULATION
+═══════════════════════════════════════════════════ */
+function initCCTV(id, density){
+  const canvas = document.getElementById(id);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const vehicles = Array.from({length:density}, (_,i)=>({
+    lane: Math.random()>.5 ? 1 : -1,
+    prog: Math.random(),
+    speed: .0015 + Math.random()*.002,
+    col: ['#00d4ff','#ff6b35','#ffffff','#ffcc00'][i%4],
+    w: 14+Math.random()*8, h: 7+Math.random()*4
+  }));
+
+  function frame(){
+    ctx.fillStyle='#030a16'; ctx.fillRect(0,0,W,H);
+    // Road
+    ctx.fillStyle='#0a0f1a'; ctx.fillRect(0,H*.35,W,H*.65);
+    // Lane markings
+    ctx.strokeStyle='rgba(255,255,200,.35)'; ctx.lineWidth=1;
+    ctx.setLineDash([12,10]);
+    ctx.beginPath(); ctx.moveTo(W*.1,H*.5); ctx.lineTo(W*.9,H*.5); ctx.stroke();
+    ctx.setLineDash([]);
+    // Horizon buildings
+    for(let b=0;b<7;b++){
+      const bx=(b/6)*W, bh=15+Math.sin(b*2.1)*8;
+      ctx.fillStyle='#08101e'; ctx.fillRect(bx-12,H*.35-bh,22,bh);
+    }
+    // Vehicles
+    const t=Date.now()*.001;
+    vehicles.forEach(v=>{
+      v.prog=(v.prog+v.speed)%1;
+      const x=W*(.12+v.prog*.76);
+      const y=H*(.5+v.lane*.09);
+      const sc=.6+v.prog*.8;
+      ctx.fillStyle=v.col;
+      ctx.fillRect(x-v.w*sc*.5, y-v.h*sc*.5, v.w*sc, v.h*sc);
+      // headlight
+      ctx.fillStyle='rgba(255,255,180,.7)';
+      ctx.fillRect(x+v.w*sc*.4, y-v.h*sc*.3, 3, v.h*sc*.6);
+    });
+    // Timestamp
+    const ts=new Date().toLocaleString('en-PH',{timeZone:'Asia/Manila',
+      hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(0,H-18,W,18);
+    ctx.fillStyle='#00ff88'; ctx.font='9px monospace';
+    ctx.fillText(ts+' PHT', 5, H-6);
+    // Noise
+    for(let n=0;n<40;n++){
+      ctx.fillStyle=`rgba(255,255,255,${Math.random()*.015})`;
+      ctx.fillRect(Math.random()*W,Math.random()*H,1,1);
+    }
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+initCCTV('cam1',3); initCCTV('cam2',7); initCCTV('cam3',1);
+initCCTV('cam4',4); initCCTV('cam5',2); initCCTV('cam6',8);
+
+/* ═══════════════════════════════════════════════════
+   TRAFFIC CANVAS HEATMAP
+═══════════════════════════════════════════════════ */
+(function(){
+  const canvas = document.getElementById('trafficCanvas');
+  const ctx    = canvas.getContext('2d');
+  function resize(){
+    canvas.width  = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const hots = [
+    {rx:.5,ry:.55,r:55,lv:'hv',lbl:'SM Olongapo'},
+    {rx:.5,ry:.2, r:30,lv:'mo',lbl:'SBMA Gate'},
+    {rx:.3,ry:.7, r:28,lv:'mo',lbl:'City Hall'},
+    {rx:.7,ry:.35,r:22,lv:'cl',lbl:'Harbor Pt.'},
+    {rx:.6,ry:.75,r:40,lv:'hv',lbl:'Market'},
+    {rx:.25,ry:.45,r:18,lv:'cl',lbl:'Rizal Triangle'},
+  ];
+  const roads = [
+    // x1%,y1%,x2%,y2%,lv
+    [.1,.5,.9,.5,'hv'],
+    [.5,.05,.5,.95,'mo'],
+    [.15,.15,.85,.85,'cl'],
+    [.15,.85,.85,.15,'cl'],
+    [.3,.2,.7,.8,'mo'],
+  ];
+
+  function draw(){
+    const W=canvas.width, H=canvas.height;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#04090f'; ctx.fillRect(0,0,W,H);
+    // Grid
+    ctx.strokeStyle='rgba(0,212,255,.04)'; ctx.lineWidth=1;
+    for(let x=0;x<W;x+=50){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(let y=0;y<H;y+=50){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    // Heatmap
+    hots.forEach(h=>{
+      const px=h.rx*W, py=h.ry*H;
+      const col = h.lv==='hv'?'255,51,102' : h.lv==='mo'?'255,204,0' : '0,255,136';
+      const g = ctx.createRadialGradient(px,py,0,px,py,h.r);
+      g.addColorStop(0, `rgba(${col},.45)`);
+      g.addColorStop(1, `rgba(${col},0)`);
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(px,py,h.r,0,Math.PI*2); ctx.fill();
+    });
+    // Roads
+    roads.forEach(r=>{
+      const col = r[4]==='hv'?'#ff3366' : r[4]==='mo'?'#ffcc00' : '#00ff88';
+      ctx.strokeStyle=col; ctx.lineWidth=2.5;
+      ctx.shadowColor=col; ctx.shadowBlur=4;
+      ctx.beginPath(); ctx.moveTo(r[0]*W,r[1]*H); ctx.lineTo(r[2]*W,r[3]*H); ctx.stroke();
+      ctx.shadowBlur=0;
+    });
+    // Recommended route (pulsing dashed)
+    const p=(Math.sin(Date.now()*.003)+1)*.5;
+    ctx.strokeStyle=`rgba(0,212,255,${.4+p*.6})`; ctx.lineWidth=3.5;
+    ctx.setLineDash([10,6]); ctx.shadowColor='#00d4ff'; ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.moveTo(W*.15,H*.5); ctx.lineTo(W*.5,H*.2); ctx.stroke();
+    ctx.setLineDash([]); ctx.shadowBlur=0;
+    // Labels
+    hots.forEach(h=>{
+      const px=h.rx*W, py=h.ry*H;
+      ctx.fillStyle='rgba(4,9,15,.85)';
+      ctx.strokeStyle='rgba(0,212,255,.35)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.rect(px-28,py-18,56,14); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#7799bb'; ctx.font='8px monospace';
+      ctx.textAlign='center'; ctx.fillText(h.lbl,px,py-8);
+    });
+    ctx.textAlign='left';
+    // Moving vehicles
+    const t=Date.now()*.0005;
+    for(let v=0;v<12;v++){
+      const ang=((t+v*.52)%1)*Math.PI*2;
+      const vx=W*.5+Math.cos(ang)*W*.22, vy=H*.5+Math.sin(ang)*H*.17;
+      ctx.fillStyle=v%2===0?'#00d4ff':'#ff6b35';
+      ctx.beginPath(); ctx.arc(vx,vy,2.5,0,Math.PI*2); ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ═══════════════════════════════════════════════════
+   TRAFFIC DATA UPDATER
+═══════════════════════════════════════════════════ */
+function rng(min,max){ return Math.floor(Math.random()*(max-min)+min); }
+
+function updateTraffic(){
+  // Routes
+  [['rt1',8,20],['rt2',12,35],['rt3',25,50],['rt4',15,30]].forEach(([id,mn,mx])=>{
+    document.getElementById(id).textContent = rng(mn,mx)+' min';
+  });
+  // Bars
+  [['bv1','bb1',45,90,'y'],['bv2','bb2',65,99,'r'],['bv3','bb3',10,40,'g'],
+   ['bv4','bb4',35,75,'y'],['bv5','bb5',8,30,'g']].forEach(([vid,bid,mn,mx,cls])=>{
+    const v=rng(mn,mx);
+    document.getElementById(vid).textContent=v+'%';
+    const el=document.getElementById(bid);
+    el.style.width=v+'%';
+    el.className='bar-fill '+cls;
+  });
+  // Camera veh/hr
+  [['c1v',50,90],['c2v',100,170],['c3v',20,50],
+   ['c4v',60,120],['c5v',15,50],['c6v',120,180]].forEach(([id,mn,mx])=>{
+    document.getElementById(id).textContent=rng(mn,mx);
+  });
+  // ML timestamp
+  document.getElementById('mlUpdate').textContent =
+    new Date().toLocaleTimeString('en-PH',{timeZone:'Asia/Manila',hour12:false});
+}
+setInterval(updateTraffic, 5000); updateTraffic();
+
+/* ═══════════════════════════════════════════════════
+   PLATE NUMBER
+═══════════════════════════════════════════════════ */
+function onPlate(el){
+  const v=el.value.toUpperCase().replace(/[^A-Z0-9\s]/g,'');
+  el.value=v;
+  document.getElementById('plateDisp').textContent = v||'--- ----';
+}
+
+/* ═══════════════════════════════════════════════════
+   EMERGENCY ALERT
+═══════════════════════════════════════════════════ */
+let alertType = 'fire';
+function pickAlert(btn, type){
+  document.querySelectorAll('.at-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  alertType = type;
+}
+function sendAlert(){
+  const loc = document.getElementById('locSel').value;
+  if(!loc){ document.getElementById('locSel').focus(); return; }
+  const msgs = {
+    fire:    '🔥 FIRE ALERT — BFP units dispatched to '+loc,
+    medical: '🏥 MEDICAL ALERT — Ambulance dispatched from J.L.Gordon Hospital',
+    police:  '🚔 POLICE ALERT — OCPO unit responding to '+loc,
+    traffic: '🚦 TRAFFIC ALERT — TMO officers en route to '+loc,
+  };
+  const el = document.getElementById('alertSent');
+  el.textContent = '✅ '+msgs[alertType]+'. ETA: 3–5 min.';
+  el.classList.add('show');
+  const cnt = document.getElementById('sAlerts');
+  cnt.textContent = parseInt(cnt.textContent)+1;
+  setTimeout(()=>el.classList.remove('show'), 8000);
+}
+
+/* ═══════════════════════════════════════════════════
+   LEAFLET MAP
+═══════════════════════════════════════════════════ */
+const map = L.map('main-map',{center:[14.8395,120.2827],zoom:14});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; <a href="https://carto.com/" target="_blank">CARTO</a> &copy; OpenStreetMap contributors',
+  maxZoom:19, subdomains:'abcd'
+}).addTo(map);
+
+function mkIcon(emoji, color){
+  return L.divIcon({
+    html:`<div style="
+      background:rgba(5,13,26,.92);
+      border:2px solid ${color};
+      border-radius:50%;
+      width:36px;height:36px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:15px;
+      box-shadow:0 0 10px ${color};
+    ">${emoji}</div>`,
+    className:'', iconSize:[36,36], iconAnchor:[18,18]
+  });
+}
+
+function popup(emoji, name, desc, color, badge){
+  return `<div style="background:#0a1628;color:#ddeeff;border-radius:10px;padding:14px;min-width:210px;font-family:Inter,sans-serif;border:1px solid rgba(0,212,255,.2);">
+    <div style="font-size:1rem;font-weight:700;margin-bottom:6px;">${emoji} ${name}</div>
+    <div style="font-size:.78rem;color:#5577aa;line-height:1.6;">${desc}</div>
+    <div style="margin-top:8px;font-size:.7rem;color:${color};">● ${badge}</div>
+  </div>`;
+}
+
+const lyrTourism   = L.layerGroup();
+const lyrTraffic   = L.layerGroup();
+const lyrEmergency = L.layerGroup();
+
+// Tourism spots
+[
+  [14.8271,120.2807,'🌊','Subic Bay Freeport Zone','World-class freeport with beaches, duty-free shopping &amp; water sports. Former US Naval Base.','#00d4ff','Tourist Attraction'],
+  [14.8089,120.2478,'🦁','Zoobic Safari','Philippines\' first drive-through tiger safari with 80+ wildlife species.','#ff6b35','Tourist Attraction'],
+  [14.8055,120.2488,'🐬','Ocean Adventure','SE Asia\'s first open-water marine theme park — dolphin shows, sharks &amp; more.','#0099cc','Tourist Attraction'],
+  [14.8255,120.2814,'🛍️','Harbor Point Mall','Premium mall inside SBFZ with bay views and duty-free shopping.','#9933cc','Tourist Attraction'],
+  [14.7978,120.2541,'🏖️','Camayan Beach Resort','White sand beach resort inside SBFZ — swimming, snorkeling, kayaking.','#ff9933','Tourist Attraction'],
+  [14.8318,120.2800,'🏛️','Rizal Triangle','Historic civic center park — heart of Olongapo City.','#3366ff','Heritage Site'],
+  [14.8388,120.2882,'🏬','SM City Olongapo','Major mall — cinemas, dining, and entertainment.','#ff3399','Commercial Hub'],
+  [14.8390,120.2847,'🏢','Olongapo City Hall','Seat of Olongapo City local government.','#33cc66','Government'],
+].forEach(([lat,lng,emoji,name,desc,col,badge])=>{
+  L.marker([lat,lng],{icon:mkIcon(emoji,col)})
+   .bindPopup(popup(emoji,name,desc,col,badge))
+   .addTo(lyrTourism);
+});
+
+// Traffic spots
+[
+  [14.8388,120.2882,'🔴','SM Area — Heavy Congestion','142 veh/hr · Avoid during peak hours (7–9am, 5–8pm)','#ff3366','Heavy Traffic'],
+  [14.8353,120.2823,'🔴','Public Market — Heavy Congestion','156 veh/hr · Morning &amp; afternoon peaks','#ff3366','Heavy Traffic'],
+  [14.8318,120.2800,'🟡','Rizal Triangle — Moderate','67 veh/hr · Expect 5–10 min delays','#ffcc00','Moderate Traffic'],
+  [14.8271,120.2807,'🟢','SBMA Gate — Clear','34 veh/hr · Smooth flow','#00ff88','Clear Traffic'],
+].forEach(([lat,lng,emoji,name,desc,col,badge])=>{
+  L.marker([lat,lng],{icon:mkIcon(emoji,col)})
+   .bindPopup(popup(emoji,name,desc,col,badge))
+   .addTo(lyrTraffic);
+});
+
+// Emergency spots
+[
+  [14.8374,120.2843,'🏥','James L. Gordon Memorial Hospital','24/7 Emergency Ward · Tel: 047-222-4386','#00ff88','Emergency Service'],
+  [14.8390,120.2847,'🚔','Olongapo City Police HQ','OCPO Main Station · Tel: 047-222-2924','#3366ff','Emergency Service'],
+  [14.8365,120.2831,'🚒','BFP Fire Station','Bureau of Fire Protection · Tel: 047-224-2531','#ff6600','Emergency Service'],
+].forEach(([lat,lng,emoji,name,desc,col,badge])=>{
+  L.marker([lat,lng],{icon:mkIcon(emoji,col)})
+   .bindPopup(popup(emoji,name,desc,col,badge))
+   .addTo(lyrEmergency);
+});
+
+lyrTourism.addTo(map);
+lyrTraffic.addTo(map);
+
+// Tourism route polyline
+L.polyline([
+  [14.8395,120.2827],[14.8318,120.2800],
+  [14.8271,120.2807],[14.8255,120.2814],
+  [14.8089,120.2478],[14.8055,120.2488],
+],{color:'#ff6b35',weight:3,opacity:.7,dashArray:'8,8'})
+.bindTooltip('🗺️ Tourism Route: City Center → SBMA → Attractions',{sticky:true})
+.addTo(map);
+
+// Layer toggles
+const layerMap = { tourism:lyrTourism, traffic:lyrTraffic, emergency:lyrEmergency };
+function toggleLayer(name, btn){
+  btn.classList.toggle('active');
+  map.hasLayer(layerMap[name]) ? map.removeLayer(layerMap[name]) : layerMap[name].addTo(map);
+}
+
+// GPS
+function getLocation(){
+  navigator.geolocation && navigator.geolocation.getCurrentPosition(
+    pos=>{
+      const {latitude:lat, longitude:lng} = pos.coords;
+      L.marker([lat,lng],{icon:mkIcon('📍','#00d4ff')})
+       .addTo(map)
+       .bindPopup(popup('📍','Your Location','You are here','#00d4ff','GPS'))
+       .openPopup();
+      map.setView([lat,lng],15);
+    },
+    ()=> map.setView([14.8395,120.2827],14)
+  );
+}
+
+// Map stat updates
+map.on('zoom', ()=> document.getElementById('mZoom').textContent=map.getZoom());
+map.on('move', ()=>{
+  const c=map.getCenter();
+  document.getElementById('mLat').textContent=c.lat.toFixed(4)+'°N';
+  document.getElementById('mLng').textContent=c.lng.toFixed(4)+'°E';
+});
+</script>
+</body>
+</html>
